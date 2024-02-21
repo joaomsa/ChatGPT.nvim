@@ -779,9 +779,14 @@ function Chat:open()
       self:addQuestion(value)
       if self.role == ROLE_USER then
         self:showProgess()
-        local params = vim.tbl_extend("keep", { stream = true, messages = self:toMessages() }, Settings.params)
+        local stream = false -- stream currently broken
+        local params = vim.tbl_extend("keep", { stream = stream, messages = self:toMessages() }, Settings.params)
         Api.chat_completions(params, function(answer, state)
-          self:addAnswerPartial(answer, state)
+          if stream then
+            self:addAnswerPartial(answer, state)
+          else
+            self:addAnswer(answer, {})
+          end
         end, self.should_stop)
       end
     end,
