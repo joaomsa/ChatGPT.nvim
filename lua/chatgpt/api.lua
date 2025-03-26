@@ -5,6 +5,12 @@ local Utils = require("chatgpt.utils")
 
 local Api = {}
 
+local GEMINI_API_HOST = 'generativelanguage.googleapis.com/v1beta/openai'
+
+function Api.is_gemini(params)
+    return Api.OPENAI_API_HOST:find(GEMINI_API_HOST) ~= nil
+end
+
 function Api.completions(custom_params, cb)
   local openai_params = Utils.collapsed_openai_params(Config.options.openai_params)
   local params = vim.tbl_extend("keep", custom_params, openai_params)
@@ -14,6 +20,11 @@ end
 function Api.chat_completions(custom_params, cb, should_stop)
   local openai_params = Utils.collapsed_openai_params(Config.options.openai_params)
   local params = vim.tbl_extend("keep", custom_params, openai_params)
+  if Api.is_gemini(params) then
+    -- break's Gemini OpenAI shim
+    -- https://discuss.ai.google.dev/t/invalid-argument-error-using-openai-compatible/51788/16
+    params.frequency_penalty = nil
+  end
   -- the custom params contains <dynamic> if model is not constant but function
   -- therefore, use collapsed openai params (with function evaluated to get model) if that is the case
   if params.model == "<dynamic>" then
@@ -305,10 +316,10 @@ end
 function Api.setup()
   loadOptionalConfig("OPENAI_API_HOST", "OPENAI_API_HOST", "api_host_cmd", function(host)
     Api.OPENAI_API_HOST = host
-    Api.COMPLETIONS_URL = ensureUrlProtocol(Api.OPENAI_API_HOST .. "/v1/completions")
-    Api.CHAT_COMPLETIONS_URL = ensureUrlProtocol(Api.OPENAI_API_HOST .. "/v1/chat/completions")
-    Api.EDITS_URL = ensureUrlProtocol(Api.OPENAI_API_HOST .. "/v1/edits")
-  end, "api.openai.com")
+    Api.COMPLETIONS_URL = ensureUrlProtocol(Api.OPENAI_API_HOST .. "/completions")
+    Api.CHAT_COMPLETIONS_URL = ensureUrlProtocol(Api.OPENAI_API_HOST .. "/chat/completions")
+    Api.EDITS_URL = ensureUrlProtocol(Api.OPENAI_API_HOST .. "/edits")
+  end, "api.openai.com/v1")
 
   loadRequiredConfig("OPENAI_API_KEY", "OPENAI_API_KEY", "api_key_cmd", function(key)
     Api.OPENAI_API_KEY = key
