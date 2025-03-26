@@ -176,12 +176,8 @@ function Chat:_add(type, text, usage, idx)
     start_line = prev.end_line + (prev.type == ANSWER and 2 or 1)
   end
 
-  local lines = {}
-  local nr_of_lines = 0
-  for line in string.gmatch(text, "[^\n]+") do
-    nr_of_lines = nr_of_lines + 1
-    table.insert(lines, line)
-  end
+  local lines = Utils.split_string_by_line(text)
+  local nr_of_lines = #lines
 
   table.insert(self.messages, {
     idx = idx,
@@ -267,8 +263,6 @@ function Chat:addAnswerPartial(text, state)
   end
 
   if state == "START" or state == "CONTINUE" then
-    local lines = vim.split(text, "\n", {})
-    local length = #lines
     local buffer = self.chat_window.bufnr
     local win = self.chat_window.winid
 
@@ -276,15 +270,25 @@ function Chat:addAnswerPartial(text, state)
       return
     end
 
-    for i, line in ipairs(lines) do
+    local i = 1
+    while i <= #text do
+      local line = string.sub(text, i)
+      local line_end_idx = string.find(text, "\n", i, true)
+      if line_end_idx ~= nil then
+        line = string.sub(text, i, line_end_idx - 1)
+      end
+
       local currentLine = vim.api.nvim_buf_get_lines(buffer, -2, -1, false)[1]
       vim.api.nvim_buf_set_lines(buffer, -2, -1, false, { currentLine .. line })
+      i = i + #line
+
+      if line_end_idx ~= nil then
+        vim.api.nvim_buf_set_lines(buffer, -1, -1, false, { "" })
+        i = i + 1
+      end
 
       local last_line_num = vim.api.nvim_buf_line_count(buffer)
       Signs.set_for_lines(self.chat_window.bufnr, start_line, last_line_num - 1, "chat")
-      if i == length and i > 1 then
-        vim.api.nvim_buf_set_lines(buffer, -1, -1, false, { "" })
-      end
       if self:is_buf_visiable() then
         vim.api.nvim_win_set_cursor(win, { last_line_num, 0 })
       end
@@ -425,11 +429,8 @@ function Chat:renderLastMessage()
   self:stopSpinner()
   local msg = self:getSelected()
 
-  local lines = {}
-  for w in string.gmatch(msg.text, "[^\r\n]+") do
-    table.insert(lines, w)
-  end
-  table.insert(lines, "")
+  local lines = Utils.split_string_by_line(msg.text)
+  table.insert(lines, "") -- this is important to show initial prompt
   if msg.type == ANSWER then
     table.insert(lines, "")
   end
